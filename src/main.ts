@@ -7,7 +7,10 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // 配置静态文件服务
-  app.useStaticAssets(join(__dirname, '..', 'public'));
+  app.useStaticAssets(join(process.cwd(), 'public'), {
+    prefix: '/',
+    index: 'index.html',
+  });
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
