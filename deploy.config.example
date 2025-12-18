@@ -1,0 +1,16 @@
+# 部署配置示例
+# 复制此文件为 deploy.config 并填入你的实际配置
+# 或者直接设置环境变量
+
+# EC2 实例 IP 地址
+export EC2_IP="your-ec2-ip-address"
+
+# SSH 私钥路径
+export SSH_KEY="~/path/to/your-key.pem"
+
+# 应用名称（PM2 进程名）
+export APP_NAME="weekend-api"
+
+# 远程服务器上的项目目录
+export REMOTE_DIR="cloud-arch-lab"
+

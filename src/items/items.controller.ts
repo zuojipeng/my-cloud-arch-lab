@@ -1,45 +1,47 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Body,
-  Param,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, Query } from '@nestjs/common';
 import { ItemsService } from './items.service';
+import { Item, Prisma } from '@prisma/client';
 
-@Controller('api/items')
+@Controller('items')
 export class ItemsController {
   constructor(private readonly itemsService: ItemsService) {}
 
-  @Get()
-  async findAll() {
-    try {
-      return await this.itemsService.findAll();
-    } catch (error) {
-      throw new Error('Failed to fetch items');
-    }
+  @Post()
+  create(@Body() createItemDto: Prisma.ItemCreateInput) {
+    return this.itemsService.create(createItemDto);
   }
 
-  @Post()
-  async create(@Body() body: { name: string; value: string }) {
-    try {
-      return await this.itemsService.create(body);
-    } catch (error) {
-      throw new Error('Failed to create item');
-    }
+  @Get()
+  findAll(
+    @Query('skip') skip: string,
+    @Query('take') take: string,
+  ) {
+    return this.itemsService.findAll(
+      skip ? parseInt(skip) : 0,
+      take ? parseInt(take) : 10,
+    );
+  }
+
+  @Get('count')
+  count() {
+    return this.itemsService.count();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.itemsService.findOne(parseInt(id));
+  }
+
+  @Put(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateItemDto: Prisma.ItemUpdateInput,
+  ) {
+    return this.itemsService.update(parseInt(id), updateItemDto);
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.OK)
-  async delete(@Param('id') id: string) {
-    try {
-      await this.itemsService.delete(parseInt(id));
-      return { success: true };
-    } catch (error) {
-      throw new Error('Failed to delete item');
-    }
+  remove(@Param('id') id: string) {
+    return this.itemsService.remove(parseInt(id));
   }
 }

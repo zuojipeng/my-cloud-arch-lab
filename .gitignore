@@ -40,6 +40,7 @@ lerna-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 .env.local
 
 # temp directory
@@ -72,3 +73,9 @@ prisma/*.db-journal
 # Personal notes
 todo.md
 test-db-connection.js
+
+# Deploy folder (old build artifacts)
+/deploy
+
+# Deploy configuration (contains sensitive info)
+deploy.config

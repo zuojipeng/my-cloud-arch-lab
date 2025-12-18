@@ -59,16 +59,71 @@ $ pnpm run test:cov
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+### 快速部署到 EC2
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+项目包含自动化部署脚本，可以一键部署到 EC2。
+
+#### 前置要求
+- 已配置 EC2 实例（Amazon Linux 2）
+- 已安装 Node.js 和 PM2
+- SSH 密钥文件路径：`~/Downloads/weekend-key.pem`
+
+#### 部署步骤
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+# 1. 赋予脚本执行权限（首次使用）
+chmod +x deploy-ec2.sh
+
+# 2. 执行部署
+./deploy-ec2.sh
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+脚本会自动完成以下操作：
+1. 在本地构建项目（`npm run build`）
+2. 上传 `dist` 目录到 EC2
+3. 上传配置文件（package.json 等）
+4. 在 EC2 上安装依赖
+5. 重启 PM2 应用
+6. 显示应用状态和日志
+
+#### 访问应用
+部署完成后，访问：http://3.143.249.141:3000
+
+#### 常用运维命令
+
+```bash
+# 查看应用日志
+ssh -i ~/Downloads/weekend-key.pem ec2-user@3.143.249.141 'pm2 logs weekend-api'
+
+# 查看应用状态
+ssh -i ~/Downloads/weekend-key.pem ec2-user@3.143.249.141 'pm2 status'
+
+# 重启应用
+ssh -i ~/Downloads/weekend-key.pem ec2-user@3.143.249.141 'pm2 restart weekend-api'
+
+# 停止应用
+ssh -i ~/Downloads/weekend-key.pem ec2-user@3.143.249.141 'pm2 stop weekend-api'
+```
+
+### 手动部署（不推荐）
+
+如果需要手动部署，参考以下步骤：
+
+```bash
+# 1. 本地构建
+npm run build
+
+# 2. 上传文件
+scp -i ~/Downloads/weekend-key.pem -r dist/ ec2-user@3.143.249.141:~/cloud-arch-lab/
+
+# 3. SSH 连接到 EC2
+ssh -i ~/Downloads/weekend-key.pem ec2-user@3.143.249.141
+
+# 4. 进入项目目录并重启
+cd ~/cloud-arch-lab
+npm ci --only=production
+pm2 restart weekend-api
+```
 
 ## Resources
 
