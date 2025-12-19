@@ -59,6 +59,54 @@ $ pnpm run test:cov
 
 ## Deployment
 
+### AWS SAM 部署（推荐 - Serverless）
+
+使用 AWS SAM 将应用部署到 AWS Lambda，配置 VPC 和 API Gateway。
+
+#### 前置要求
+
+- 安装 [AWS CLI](https://aws.amazon.com/cli/)
+- 安装 [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
+- 配置 AWS 凭证：`aws configure`
+
+#### 快速开始
+
+**方式 1: 使用 Makefile（推荐）**
+
+```bash
+# 1. 安装依赖
+pnpm install
+
+# 2. 准备配置文件
+cp sam-parameters.example.json sam-parameters.json
+# 编辑 sam-parameters.json，填入你的数据库连接字符串
+
+# 3. 一键部署
+make sam-deploy
+```
+
+**方式 2: 手动部署**
+
+```bash
+# 1. 安装依赖
+pnpm install
+
+# 2. 构建 Lambda 包（包含 Prisma Client）
+make build-lambda
+# 或: bash scripts/build-for-lambda.sh
+
+# 3. 构建 SAM 应用
+sam build
+
+# 4. 部署到 AWS
+sam deploy --guided
+```
+
+#### 文档
+
+- 📖 [快速开始指南](./docs/SAM_QUICKSTART.md) - 5 分钟快速部署
+- 📚 [完整部署文档](./docs/AWS_SAM_DEPLOYMENT.md) - 详细说明和故障排除
+
 ### 快速部署到 EC2
 
 项目包含自动化部署脚本，可以一键部署到 EC2。

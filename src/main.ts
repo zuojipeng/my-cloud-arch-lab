@@ -1,10 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // 全局异常过滤器 - 捕获所有异常并返回友好的错误信息
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // 从环境变量读取允许的源
   const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -17,7 +20,6 @@ async function bootstrap() {
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
-
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port, '0.0.0.0');

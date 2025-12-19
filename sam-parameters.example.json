@@ -1,0 +1,8 @@
+{
+  "Parameters": {
+    "DatabaseUrl": "postgresql://user:password@host:5432/database",
+    "DatabaseReadUrl": "postgresql://user:password@read-host:5432/database",
+    "AllowedOrigins": "*"
+  }
+}
+

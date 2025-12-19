@@ -5,7 +5,9 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // 生成同时支持本地开发 (native/darwin) 和 Lambda 运行时 (rhel-openssl-3.0.x) 的 Query Engine
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

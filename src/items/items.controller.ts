@@ -1,14 +1,28 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, Query, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ItemsService } from './items.service';
 import { Item, Prisma } from '@prisma/client';
 
-@Controller('items')
+@Controller('api/items')
 export class ItemsController {
+  private readonly logger = new Logger(ItemsController.name);
+
   constructor(private readonly itemsService: ItemsService) {}
 
   @Post()
-  create(@Body() createItemDto: Prisma.ItemCreateInput) {
-    return this.itemsService.create(createItemDto);
+  async create(@Body() createItemDto: Prisma.ItemCreateInput) {
+    try {
+      this.logger.log(`创建项目: ${JSON.stringify(createItemDto)}`);
+      return await this.itemsService.create(createItemDto);
+    } catch (error) {
+      this.logger.error('创建项目失败:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        `创建项目失败: ${error.message || '未知错误'}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   @Get()

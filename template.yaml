@@ -1,0 +1,336 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  cloud-arch-lab
+  
+  NestJS 应用部署到 AWS Lambda，配置 VPC（1个公网子网 + 3个私有子网）
+
+# 全局配置
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: nodejs20.x
+    Environment:
+      Variables:
+        NODE_ENV: production
+        DATABASE_URL: !Ref DatabaseUrl
+        DATABASE_READ_URL: !Ref DatabaseReadUrl
+        ALLOWED_ORIGINS: !Ref AllowedOrigins
+
+# 参数定义
+Parameters:
+  DatabaseUrl:
+    Type: String
+    Description: PostgreSQL 主库连接字符串（写操作）
+    NoEcho: true
+  
+  DatabaseReadUrl:
+    Type: String
+    Description: PostgreSQL 从库连接字符串（读操作，可选，留空则使用主库）
+    Default: ''
+    NoEcho: true
+  
+  AllowedOrigins:
+    Type: String
+    Description: 允许的 CORS 源（逗号分隔）
+    Default: '*'
+  
+  VpcCidr:
+    Type: String
+    Description: VPC CIDR 块
+    Default: '10.0.0.0/16'
+
+# 资源定义
+Resources:
+  # ==================== VPC 和网络资源 ====================
+  
+  # VPC
+  CloudArchVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-vpc
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref CloudArchVpc
+
+  # NAT Gateway Elastic IP
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-nat-eip
+
+  # 公网子网（用于 NAT Gateway）
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CloudArchVpc
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: '10.0.1.0/24'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-public-subnet
+
+  # 公网路由表
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref CloudArchVpc
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-public-rt
+
+  # 公网默认路由（指向 Internet Gateway）
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+
+  # 公网子网关联路由表
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # NAT Gateway（部署在公网子网）
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    DependsOn: NatGatewayEIP
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-nat
+
+  # 私有子网 1（用于 Lambda）
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CloudArchVpc
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: '10.0.2.0/24'
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-private-subnet-1
+
+  # 私有子网 2（用于 Lambda）
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CloudArchVpc
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: '10.0.3.0/24'
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-private-subnet-2
+
+  # 私有子网 3（用于 Lambda）
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CloudArchVpc
+      AvailabilityZone: !Select [2, !GetAZs '']
+      CidrBlock: '10.0.4.0/24'
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-private-subnet-3
+
+  # 私有路由表
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref CloudArchVpc
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-private-rt
+
+  # 私有默认路由（指向 NAT Gateway）
+  PrivateDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NatGateway
+
+  # 私有子网关联路由表
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Lambda 安全组（允许出站到数据库和 GitHub API）
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: cloud-arch-lab-lambda-sg
+      GroupDescription: Security group for Lambda functions
+      VpcId: !Ref CloudArchVpc
+      SecurityGroupEgress:
+        # 允许所有出站流量（Lambda 需要访问数据库和 GitHub API）
+        - IpProtocol: -1
+          CidrIp: '0.0.0.0/0'
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: Name
+          Value: cloud-arch-lab-lambda-sg
+
+  # ==================== Lambda 函数 ====================
+  
+  CloudArchApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cloud-arch-lab-api
+      CodeUri: .
+      Handler: dist/lambda.handler
+      Runtime: nodejs20.x
+      Timeout: 30
+      MemorySize: 512
+      # IAM 权限：VPC 访问和日志
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface
+                - ec2:DescribeNetworkInterfaces
+                - ec2:DeleteNetworkInterface
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: 'arn:aws:logs:*:*:*'
+      # VPC 配置：Lambda 部署在私有子网中
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+          - !Ref PrivateSubnet3
+      # 环境变量
+      Environment:
+        Variables:
+          NODE_ENV: production
+          DATABASE_URL: !Ref DatabaseUrl
+          DATABASE_READ_URL: !Ref DatabaseReadUrl
+          ALLOWED_ORIGINS: !Ref AllowedOrigins
+      # 事件源：API Gateway
+      Events:
+        ApiGateway:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            RestApiId: !Ref CloudArchApi
+            Auth:
+              Authorizer: NONE
+
+  # ==================== API Gateway ====================
+  
+  CloudArchApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: cloud-arch-lab-api
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS,HEAD,PATCH'"
+        AllowHeaders: "'Content-Type,Authorization,Accept'"
+        AllowOrigin: "'*'"
+        AllowCredentials: false
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: Cloud Arch Lab API
+          version: '1.0'
+        basePath: /prod
+        paths:
+          /{proxy+}:
+            x-amazon-apigateway-any-method:
+              responses:
+                default:
+                  statusCode: '200'
+                  responseParameters:
+                    gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+                    gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,Accept'"
+                    gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS,HEAD,PATCH'"
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CloudArchApiFunction.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+
+# 输出
+Outputs:
+  CloudArchApiUrl:
+    Description: API Gateway 端点 URL
+    Value: !Sub 'https://${CloudArchApi}.execute-api.${AWS::Region}.amazonaws.com/prod/'
+    Export:
+      Name: CloudArchApiUrl
+
+  CloudArchVpcId:
+    Description: VPC ID
+    Value: !Ref CloudArchVpc
+    Export:
+      Name: CloudArchVpcId
+
+  PublicSubnetId:
+    Description: 公网子网 ID
+    Value: !Ref PublicSubnet
+    Export:
+      Name: PublicSubnetId
+
+  PrivateSubnetIds:
+    Description: 私有子网 ID 列表
+    Value: !Join [',', [!Ref PrivateSubnet1, !Ref PrivateSubnet2, !Ref PrivateSubnet3]]
+    Export:
+      Name: PrivateSubnetIds
+
+  LambdaSecurityGroupId:
+    Description: Lambda 安全组 ID
+    Value: !Ref LambdaSecurityGroup
+    Export:
+      Name: LambdaSecurityGroupId
+

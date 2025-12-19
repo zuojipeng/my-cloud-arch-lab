@@ -1,0 +1,52 @@
+# SAM 构建时忽略的文件和目录
+
+# 依赖（注意：Prisma Client 需要包含在部署包中）
+# 排除所有 node_modules，但保留 Prisma
+node_modules/
+!node_modules/@prisma/
+!node_modules/.prisma/
+.pnpm-store/
+.pnpm/
+
+# 构建产物（SAM 会重新构建，但需要保留 dist/ 因为 Handler 指向 dist/lambda.handler）
+# 注意：SAM build 会重新构建，但我们需要确保 dist/ 存在
+
+# 测试文件
+test/
+coverage/
+*.spec.ts
+*.e2e-spec.ts
+
+# 开发文件
+.vscode/
+.idea/
+*.log
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# 环境变量文件（敏感信息）
+.env
+.env.local
+.env.*.local
+
+# 文档
+docs/
+*.md
+!README.md
+
+# 部署脚本
+deploy-ec2.sh
+deploy.config
+deploy.config.example
+
+# 其他
+dev.db
+todo.md
+TODO_NEW.md
+tsconfig.build.tsbuildinfo
+

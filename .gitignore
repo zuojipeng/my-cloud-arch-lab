@@ -70,8 +70,11 @@ prisma/*.db-journal
 # Prisma
 /prisma/migrations
 
-# Personal notes
-todo.md
+# Documentation (ignore all markdown files)
+*.md
+docs/
+
+# Test files
 test-db-connection.js
 
 # Deploy folder (old build artifacts)
@@ -79,3 +82,9 @@ test-db-connection.js
 
 # Deploy configuration (contains sensitive info)
 deploy.config
+sam-parameters.json
+
+# AWS SAM (contains deployment configuration)
+.aws-sam/
+samconfig.toml
+samconfig.toml.bak
