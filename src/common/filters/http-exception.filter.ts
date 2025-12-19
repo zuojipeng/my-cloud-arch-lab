@@ -45,6 +45,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof Error ? exception.stack : JSON.stringify(exception),
     );
 
+    // 确保异常响应也带上 CORS 头，否则前端会看到 CORS 错误而不是实际错误信息
+    const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || '*';
+    let originToSet = '*';
+
+    if (allowedOriginsEnv !== '*') {
+      const allowedList = allowedOriginsEnv.split(',').map((o) => o.trim());
+      const requestOrigin = request.headers.origin as string | undefined;
+      if (requestOrigin && allowedList.includes(requestOrigin)) {
+        originToSet = requestOrigin;
+      }
+    }
+
+    response.header('Access-Control-Allow-Origin', originToSet);
+    response.header(
+      'Access-Control-Allow-Headers',
+      'Content-Type,Authorization,Accept',
+    );
+    response.header(
+      'Access-Control-Allow-Methods',
+      'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    );
+
     response.status(status).json(errorResponse);
   }
 }
